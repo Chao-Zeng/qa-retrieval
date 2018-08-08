@@ -1,0 +1,14 @@
+{
+    "max_question_len":160,
+    "max_answer_len":80,
+    "vocabulary_file":"data/vocabulary.txt",
+    "glove_file":"data/glove.6B.100d.txt",
+    "vocab_size": 91620,
+    "embedding_size":100,
+    "rnn_num_units":128,
+    "learning_rate":0.001,
+    "train_file":"data/train.csv",
+    "batch_size":100,
+    "train_steps":10000,
+    "model_dir":"model"
+}
