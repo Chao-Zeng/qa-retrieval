@@ -15,23 +15,9 @@ def dual_encoder_model(features, labels, mode, params):
     answer_len = features["answer_len"]
 
     # build a LSTM Cell
-    """
-    with tf.variable_scope("question_scope") as question_scope:
-        cell_q = tf.contrib.rnn.BasicLSTMCell(num_units=hparams.rnn_num_units)
-    with tf.variable_scope("answer_scope") as answer_scope:
-        cell_a = tf.contrib.rnn.BasicLSTMCell(num_units=hparams.rnn_num_units)
-    """
-
-    """
-    rnn_outputs, rnn_states = tf.nn.dynamic_rnn(
-            cell,
-            tf.concat([question_embedded, answer_embedded], 0),
-            sequence_length= tf.concat([question_len, answer_len], 0),
-            dtype = tf.float32)
-    encoding_question, encoding_answer = tf.split(rnn_states.h, 2, 0)
-    """
     # if cell is LSTM Cell, state is LSTMStateTuple (c, h),
     # c is hidden state and h is output
+    """
     with tf.variable_scope("question_rnn") as question_scope:
         cell_q = tf.contrib.rnn.BasicLSTMCell(num_units=hparams.rnn_num_units)
         question_rnn_output, question_rnn_states = tf.nn.dynamic_rnn(
@@ -52,6 +38,17 @@ def dual_encoder_model(features, labels, mode, params):
                                                 dtype=tf.float32,
                                                 scope=answer_scope)
         encoding_answer = answer_rnn_states.h
+    """
+    with tf.variable_scope("rnn") as rnn_scope:
+        cell = tf.contrib.rnn.BasicLSTMCell(num_units=hparams.rnn_num_units)
+        rnn_outputs, rnn_states = tf.nn.dynamic_rnn(
+                cell,
+                tf.concat([question_embedded, answer_embedded], 0),
+                sequence_length = tf.concat([question_len, answer_len], 0),
+                dtype = tf.float32)
+
+        encoding_question, encoding_answer = tf.split(rnn_states.h, 2, 0)
+
 
     M = tf.get_variable(
             name="M",
@@ -80,7 +77,7 @@ def dual_encoder_model(features, labels, mode, params):
     # Apply sigmoid to convert logits to probabilities
     probs = tf.sigmoid(logits)
 
-    if mode == tf.contrib.learn.ModeKeys.INFER:
+    if mode == tf.estimator.ModeKeys.PREDICT:
         return tf.estimator.EstimatorSpec(mode=mode, predictions=probs)
 
     # cross entropy loss
@@ -90,6 +87,13 @@ def dual_encoder_model(features, labels, mode, params):
 
     # Mean loss across the batch of examples
     mean_loss = tf.reduce_mean(losses, name="mean_loss")
+
+    if mode == tf.estimator.ModeKeys.EVAL:
+        return tf.estimator.EstimatorSpec(mode=mode,
+                predictions=probs, loss=mean_loss)
+
+    # train mode
+    assert mode == tf.estimator.ModeKeys.TRAIN
 
     # train_op
     optimizer = tf.train.AdagradOptimizer(learning_rate=hparams.learning_rate)
